@@ -549,6 +549,7 @@ class QueryResponseModel:
         """
         if use_cache and blobs.is_blob_url(load_path):
             load_path = blobs.download_directory_cached(load_path)
+            print(load_path) # 수정 6.23 디버깅 확인
 
         with bf.BlobFile(os.path.join(load_path, "info.json")) as f:
             info = json.load(f)

@@ -37,22 +37,53 @@ def is_blob_url(url):
     except NotBlobPathException:
         return False
 
+## 수정 6.23
+# def parallel_copy_recursive(src_dir, dst_dir, max_workers=16, overwrite=False):
+#     """Similar to `gsutil -m cp -r $local_dir/'*' $remote_dir/`"""
+#     futures = []
+#     # NOTE: if we use ProcessPoolExecutor, this can't be used within pytorch workers
+#     with concurrent.futures.ThreadPoolExecutor(max_workers=max_workers) as executor:
+#         for root, _, filenames in bf.walk(src_dir):
+#             print(f"src_dir: {src_dir}, root: {root}") # 추가
+#             # assert root.startswith(src_dir) # 생략
+#             for filename in filenames:
+#                 src_file = bf.join(root, filename)
+#                 dst_file = bf.join(dst_dir, root[len(src_dir) + 1 :], filename)
+#                 print("copying", src_file, dst_file)
+#                 future = executor.submit(bf.copy, src_file, dst_file, overwrite=overwrite)
+#                 futures.append(future)
+#         for future in futures:
+#             future.result()
 def parallel_copy_recursive(src_dir, dst_dir, max_workers=16, overwrite=False):
-    """Similar to `gsutil -m cp -r $local_dir/'*' $remote_dir/`"""
+    scheme, account, path = parse_url(src_dir)
+    if scheme == "az":
+        src_dir_blob = f"az://{account}/{path}"
+    elif scheme == "gs":
+        src_dir_blob = f"gs://{account}/{path}"
+    else:
+        src_dir_blob = src_dir  # fallback
+
+    src_dir_blob = src_dir_blob.rstrip('/')
+    print(f"src_dir_blob: {src_dir_blob}")
     futures = []
-    # NOTE: if we use ProcessPoolExecutor, this can't be used within pytorch workers
     with concurrent.futures.ThreadPoolExecutor(max_workers=max_workers) as executor:
         for root, _, filenames in bf.walk(src_dir):
-            assert root.startswith(src_dir)
+            print(f"root: {root}, files: {filenames}")
             for filename in filenames:
                 src_file = bf.join(root, filename)
-                dst_file = bf.join(dst_dir, root[len(src_dir) + 1 :], filename)
-                print("copying", src_file, dst_file)
+                if root.startswith(src_dir_blob):
+                    rel_path = root[len(src_dir_blob):].lstrip('/')
+                else:
+                    rel_path = os.path.relpath(root, src_dir_blob)
+                # rel_path가 ''이면, dst_file = dst_dir/filename
+                # rel_path가 'checkpoint'면, dst_file = dst_dir/checkpoint/filename
+                dst_file = os.path.join(dst_dir, *rel_path.split('/'), filename) if rel_path else os.path.join(dst_dir, filename)
+                print(f"copying {src_file} -> {dst_file}")
+                os.makedirs(os.path.dirname(dst_file), exist_ok=True)
                 future = executor.submit(bf.copy, src_file, dst_file, overwrite=overwrite)
                 futures.append(future)
         for future in futures:
             future.result()
-
 
 def download_directory_cached(url):
     """ Given a blob storage path, caches the contents locally.

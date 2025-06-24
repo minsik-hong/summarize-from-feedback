@@ -46,7 +46,8 @@ class HParams:
                 v = None
 
         # Set it!
-        check_type(flat_k, v, typemap[flat_k])
+        # check_type(flat_k, v, typemap[flat_k])
+        check_type(v, typemap[flat_k]) # 수정 6.23
         setattr(hp, f, v)
 
     @classmethod

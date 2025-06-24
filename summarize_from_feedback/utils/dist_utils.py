@@ -89,9 +89,9 @@ class Comm:
         dist.all_gather(tensor_list, tensor, group=self._group)
         return tensor_list
 
-
+# 수정 6.23 포트 설정
 def setup_cuda_device_and_dist(
-    backend="nccl", master_addr=None, port=29500, world_size=None, device="cuda"
+    backend="nccl", master_addr=None, port=29510, world_size=None, device="cuda"
 ) -> torch.device:
     """
     Set up the cuda device and then initialize nccl. We do these together because
